@@ -6,7 +6,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Сюда потом вставим твой секретный ключ от Tebex
-const WEBHOOK_SECRET = 'твой_секретный_ключ_от_Tebex'; 
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
 
 app.use(express.json());
 
