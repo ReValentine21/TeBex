@@ -12,7 +12,7 @@ app.use(express.json({
     }
 }));
 
-// Проверка в браузере
+// Проверка работы сервера в браузере
 app.get('/', (req, res) => {
     res.send('Сервер вебхуков Tebex успешно запущен и работает!');
 });
@@ -25,33 +25,34 @@ app.post('/tebex-webhook', (req, res) => {
     console.log('--- Получен запрос от Tebex ---');
     console.log('Тип события:', req.body ? req.body.type : 'неизвестно');
 
-    // ХИТРОСТЬ: если ключ на Render не настроен, пускаем тест, чтобы привязать ссылку
-    if (!WEBHOOK_SECRET || WEBHOOK_SECRET === 'твой_секретный_ключ_от_Tebex') {
-        console.log('⚠️ Предупреждение: WEBHOOK_SECRET еще не настроен. Пропускаем проверку для валидации.');
-        return res.status(200).json({ status: 'success', message: 'Validated' });
+    // 1. ПРОВЕРКА ВАЛИДАЦИИ: Ловим validation или validation.webhook
+    if (req.body && req.body.type && req.body.type.startsWith('validation')) {
+        console.log('✅ Получен проверочный запрос от Tebex. Отправляем ID обратно.');
+        // Возвращаем JSON с id запроса, как того требует Tebex
+        return res.status(200).json({ id: req.body.id });
     }
 
-    // Проверка настоящей подписи от Tebex
+    // 2. ХИТРОСТЬ: если ключ на Render еще не настроен, временно пускаем дальше
+    if (!WEBHOOK_SECRET || WEBHOOK_SECRET === 'твой_секретный_ключ_от_Tebex') {
+        console.log('⚠️ Предупреждение: WEBHOOK_SECRET еще не настроен в Render. Пропускаем проверку подписи.');
+        return res.status(200).json({ status: 'success', message: 'Bypassed' });
+    }
+
+    // 3. Проверка настоящей подписи от Tebex для реальных платежей
     const hash = crypto.createHmac('sha256', WEBHOOK_SECRET)
         .update(rawBody)
         .digest('hex');
 
     if (hash !== signature) {
-        console.log('❌ Ошибка подписи! Проверь секретный ключ.');
+        console.log('❌ Ошибка подписи! Проверь секретный ключ на Render.');
         return res.status(401).send('Недействительная подпись');
     }
 
-    // Если это просто проверка от Tebex
-    if (req.body && req.body.type === 'validation') {
-        console.log('✅ Проверочный вебхук успешно подтвержден!');
-        return res.status(200).json({ status: 'success' });
-    }
-
-    // Тут обрабатываем реальные платежи
+    // 4. Обработка реальных платежей
     const event = req.body;
-    console.log(`✅ Принято событие: ${event.type}`);
+    console.log(`✅ Успешно обработано событие: ${event.type}`);
 
-    // [ЗДЕСЬ В БУДУЩЕМ БУДЕТ КОД ВЫДАЧИ ДОНАТА]
+    // [ЗДЕСЬ В БУДУЩЕМ БУДЕТ КОД ВЫДАЧИ ДОНАТА В ИГРУ]
 
     res.status(200).send('OK');
 });
